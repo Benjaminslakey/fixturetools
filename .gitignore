@@ -1,0 +1,12 @@
+# PyCharm
+.idea/
+
+# Python
+*.pyc
+
+# Virtual Env
+venv/
+
+# System
+*.DS_Store
+
