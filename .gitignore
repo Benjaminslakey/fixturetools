@@ -3,10 +3,17 @@
 
 # Python
 *.pyc
+build
+docs/_build
+.eggs/
+.pytest_cache
+__pycache__
 
 # Virtual Env
+.python-version
 venv/
 
 # System
 *.DS_Store
+
 
