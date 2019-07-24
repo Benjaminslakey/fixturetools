@@ -4,8 +4,8 @@ import sys
 from copy import deepcopy
 from collections import defaultdict
 
-from src.utils import get_invocation_id
-from src.serialization import fixture_serializer
+from fixturetools.utils import get_invocation_id
+from fixturetools.serialization import fixture_serializer
 
 
 class FixtureProducer(object):

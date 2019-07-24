@@ -1,7 +1,7 @@
 from functools import partial
 
-from src.serialization import fixture_serializer
-from src.utils import get_invocation_id
+from fixturetools.serialization import fixture_serializer
+from fixturetools.utils import get_invocation_id
 
 
 def result_lookup(func, invocation_table, *func_args, **func_kwargs):

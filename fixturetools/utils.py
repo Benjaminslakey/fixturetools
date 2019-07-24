@@ -1,6 +1,6 @@
 import inspect
 
-from src.serialization import fixture_serializer
+from fixturetools.serialization import fixture_serializer
 
 
 def get_invocation_id(func, *func_args, **func_kwargs):

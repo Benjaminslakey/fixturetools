@@ -1,0 +1,11 @@
+README.md
+setup.py
+fixturetools.egg-info/PKG-INFO
+fixturetools.egg-info/SOURCES.txt
+fixturetools.egg-info/dependency_links.txt
+fixturetools.egg-info/top_level.txt
+src/__init__.py
+src/consumption.py
+src/production.py
+src/serialization.py
+src/utils.py
