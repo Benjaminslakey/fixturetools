@@ -1,4 +1,4 @@
-# pytest_fixture_tools
+# fixturetools
 
 
 ### Example use of tools
@@ -9,8 +9,8 @@
 import os
 import pytest
 
-from src.consumption import create_function_double
-from src.production import create_fixtures
+from fixturetools.consumption import create_function_double
+from fixturetools.production import create_fixtures
 
 
 def function_one(arg1, arg2, *args, **kwargs):

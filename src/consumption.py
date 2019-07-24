@@ -1,17 +1,7 @@
-from collections import namedtuple
 from functools import partial
 
-from mockito.invocation import Invocation
-
-from src.serialization import JSONSerializer, fixture_serializer
-
-
-def get_invocation_id(func, *func_args, **func_kwargs):
-    FakeMock = namedtuple('FakeMock', 'strict')
-    fake_mock = FakeMock(strict=False)
-    invocation = Invocation(fake_mock, func.__name__)
-    invocation._remember_params(func_args, func_kwargs)
-    return str(invocation)
+from src.serialization import fixture_serializer
+from src.utils import get_invocation_id
 
 
 def result_lookup(func, invocation_table, *func_args, **func_kwargs):

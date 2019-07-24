@@ -1,1 +1,1 @@
-name = "pytest-fixture-tools"
+name = "fixturetools"

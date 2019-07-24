@@ -4,14 +4,14 @@ import sys
 from copy import deepcopy
 from collections import defaultdict
 
-from src.consumption import get_invocation_id
-from src.serialization import JSONSerializer
+from src.utils import get_invocation_id
+from src.serialization import fixture_serializer
 
 
 class FixtureProducer(object):
     def __init__(self, func):
         self._func_names = []
-        self._serializer = JSONSerializer()
+        self._serializer = fixture_serializer
         self._output_dir = ""
         self._fixtures = defaultdict(dict)
 
