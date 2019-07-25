@@ -36,14 +36,16 @@ def get_invocation_id(callable_obj, *func_args, **func_kwargs):
     if inspect.isfunction(callable_obj):
         callee = callable_obj
     elif callable(callable_obj):
-        callee = callable_obj.__call__
+        callee = getattr(callable_obj, '__call__')
         # check if the callable object is an instance of our decorator
+        # @todo -- this may not be necessary, need to do more testing to find out if current implementation is affected
+        # @todo ...by the order this decorator appears when combined with other decorators on a function
         for cls_ in inspect.getmro(callable_obj.__class__):
             if cls_.__name__ == "FixtureProducer":
                 pop_self = True
                 break
     else:
-        TypeError("Cannot generate invocation_id for non-callable object")
+        raise TypeError("Cannot generate invocation_id for non-callable object")
 
     invocation = inspect.getcallargs(callee, *func_args, **func_kwargs)
     # this way using the decorator doesn't pollute the invocation signature of the decorated function

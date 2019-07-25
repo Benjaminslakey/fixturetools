@@ -12,9 +12,10 @@ from fixturetools.serialization import fixture_serializer
 class FixtureProducer(object):
     def __init__(self, func):
         self._func_names = []
+        self._invocation_key = None
+        self._fixtures = defaultdict(dict)
         self._serializer = fixture_serializer
         self._output_dir = ""
-        self._fixtures = defaultdict(dict)
 
         functools.update_wrapper(self, func)
         self._wrapped_func = func
@@ -52,7 +53,7 @@ class FixtureProducer(object):
             current_fixture = self._fixtures[fixture_name]
             if self._output_dir:
                 fixture_filepath = "%s/%s.%s" % (self._output_dir, fixture_name, self._serializer.file_ext)
-                file_exists =  os.path.exists(fixture_filepath)
+                file_exists = os.path.exists(fixture_filepath)
                 file_mode = "r+" if file_exists else "w"
                 with open(fixture_filepath, file_mode) as fixtures_file:
                     if file_exists:
@@ -64,8 +65,11 @@ class FixtureProducer(object):
 
     def _create_fixtures(self, frame, arg):
         func_return = self.reduce(frame, arg)
-        func, func_args, func_kwargs = get_invocation_details(frame)
-        invocation_id = get_invocation_id(func, *func_args, **func_kwargs)
+        if self._invocation_key:
+            invocation_id = self._invocation_key
+        else:
+            func, func_args, func_kwargs = get_invocation_details(frame)
+            invocation_id = get_invocation_id(func, *func_args, **func_kwargs)
         self._fixtures[frame.f_code.co_name][invocation_id] = arg if func_return is None else func_return
 
     def _tracer(self, frame, event, arg):
@@ -82,7 +86,7 @@ class FixtureProducer(object):
         finally:
             # disable tracer and replace with old ones
             sys.setprofile(None)
-        self._output_fixtures()
+            self._output_fixtures()
         return res
 
 
@@ -93,6 +97,8 @@ def create_fixtures(func_names, reducer=None, **kwargs):
 
     :param func_names: list of function names to monitor invocation of.
         fixtures will be created from these invocations and their results
+    :param kwargs: invocation_key: hashable item to be used as the key for storing function results in fixtures
+        the default behavior if not specified is to create an invocation signature to use as the key
     :param kwargs: serializer: a subclass of Serializer. if the results of the specified functions will
         contain objects which are not json serializable this should be a custom class which specifies how to serialize
     :param kwargs: output_dir: path of where to output the created fixtures, if none is given the fixtures will be

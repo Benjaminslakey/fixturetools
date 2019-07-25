@@ -59,7 +59,8 @@ class FixturesDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
         json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
 
-    def object_hook(self, obj):
+    @staticmethod
+    def object_hook(obj):
         if '__custom_type__' not in obj:
             return obj
 
