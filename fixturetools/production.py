@@ -5,7 +5,7 @@ import inspect
 from copy import deepcopy
 from collections import defaultdict
 
-from fixturetools.utils import get_invocation_id
+from fixturetools.utils import get_invocation_id, get_invocation_details
 from fixturetools.serialization import fixture_serializer
 
 
@@ -18,33 +18,6 @@ class FixtureProducer(object):
 
         functools.update_wrapper(self, func)
         self._wrapped_func = func
-
-    @staticmethod
-    def _get_func_details(frame):
-        arg_info = inspect.getargvalues(frame)
-        frame_variables = arg_info.locals.copy()
-
-        func_kwargs = frame_variables.get(arg_info.keywords, {})
-        # create positional args array using named parameters first, then varargs
-        varargs = frame_variables.get(arg_info.varargs, [])
-        func_args = []
-        for arg_name in arg_info.args:
-            arg_value = frame_variables.get(arg_name)
-            func_args.append(arg_value)
-        for arg_value in varargs:
-            func_args.append(arg_value)
-
-        module = inspect.getmodule(frame.f_code, _filename=frame.f_code.co_filename)
-        obj = getattr(module, frame.f_code.co_name)
-
-        if callable(obj):
-            return obj, func_args, func_kwargs
-        else:
-            raise ValueError(
-                "Could not fetch function details for -- %s: type=%s" % (
-                    getattr(obj, '__name__', default="Unknown"), type(obj)
-                )
-            )
 
     @staticmethod
     def reduce(frame, arg):
@@ -91,7 +64,7 @@ class FixtureProducer(object):
 
     def _create_fixtures(self, frame, arg):
         func_return = self.reduce(frame, arg)
-        func, func_args, func_kwargs = self._get_func_details(frame)
+        func, func_args, func_kwargs = get_invocation_details(frame)
         invocation_id = get_invocation_id(func, *func_args, **func_kwargs)
         self._fixtures[frame.f_code.co_name][invocation_id] = arg if func_return is None else func_return
 

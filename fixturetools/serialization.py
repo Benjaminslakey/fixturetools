@@ -37,17 +37,20 @@ class FixturesEncoder(json.JSONEncoder):
 
         try:
             transformed_obj = super(FixturesEncoder, self).default(obj)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             if isinstance(obj, datetime):
                 transformed_obj = {
-                    '__type__': "datetime",
+                    '__custom_type__': "datetime",
                     'dt_string': obj.isoformat()
                 }
             else:
-                transformed_obj = {
-                    '__type__': "%s.%s" % (obj.__module__, obj.__class__.__name__),
-                    'cpickle_dump': cPickle.dumps(obj)
-                }
+                try:
+                    transformed_obj = {
+                        '__custom_type__': "%s.%s" % (obj.__module__, obj.__class__.__name__),
+                        'cpickle_dump': cPickle.dumps(obj)
+                    }
+                except TypeError:
+                    transformed_obj = repr(obj)
         finally:
             return transformed_obj
 
@@ -57,16 +60,16 @@ class FixturesDecoder(json.JSONDecoder):
         json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
 
     def object_hook(self, obj):
-        if '__type__' not in obj:
+        if '__custom_type__' not in obj:
             return obj
 
-        type_ = obj.pop('__type__')
+        type_ = obj.pop('__custom_type__')
         type_instance = None
 
         if type_ == 'datetime':
             dt_string = obj['dt_string']
             type_instance = dateutil.parser.parse(dt_string)
-        elif type_:
+        elif type_ and 'cpickle_dump' in obj:
             cpickle_dump = obj.get('cpickle_dump')
             type_instance = cPickle.loads(cpickle_dump.encode('utf8') if isinstance(cpickle_dump, unicode) else cpickle_dump)
         return type_instance
