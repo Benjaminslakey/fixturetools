@@ -1,6 +1,7 @@
+import os
+import sys
 import functools
 import inspect
-import sys
 from copy import deepcopy
 from collections import defaultdict
 
@@ -50,7 +51,7 @@ class FixtureProducer(object):
         raise NotImplementedError("Subclass must implement reduce")
 
     @staticmethod
-    def _update_existing_fixtures(current_fixtures, previous_fixtures):
+    def _merge_fixtures(current_fixtures, previous_fixtures):
         updated_fixtures = None
         if isinstance(previous_fixtures, list):
             updated_fixtures = []
@@ -65,29 +66,34 @@ class FixtureProducer(object):
                 updated_fixtures[k] = v
         return updated_fixtures
 
-    def _create_fixtures(self, frame, arg):
-        func_return = self.reduce(frame, arg)
-        func, func_args, func_kwargs = self._get_func_details(frame)
-        invocation_id = get_invocation_id(func, *func_args, **func_kwargs)
-        self._fixtures[frame.f_code.co_name][invocation_id] = arg if func_return is None else func_return
+    def _update_existing_fixtures(self, fixtures_file, current_fixture):
+        file_contents = fixtures_file.read()
+        fixtures_file.seek(0)
+        previous_fixtures = self._serializer.deserialize(file_contents) if file_contents else {}
+        new_fixture = self._merge_fixtures(current_fixture, previous_fixtures)
+        fixtures_file.write(self._serializer.serialize(new_fixture))
+        fixtures_file.truncate()
 
     def _output_fixtures(self):
         for fixture_name in self._fixtures.keys():
             current_fixture = self._fixtures[fixture_name]
             if self._output_dir:
                 fixture_filepath = "%s/%s.%s" % (self._output_dir, fixture_name, self._serializer.file_ext)
-                with open(fixture_filepath, 'r+') as fixtures_file:
-                    file_contents = fixtures_file.read()
-                    fixtures_file.seek(0)
-
-                    previous_fixtures = self._serializer.deserialize(file_contents) if file_contents else {}
-                    new_fixture = self._update_existing_fixtures(current_fixture, previous_fixtures)
-
-                    fixtures_file.write(self._serializer.serialize(new_fixture))
-                    fixtures_file.truncate()
-
+                file_exists =  os.path.exists(fixture_filepath)
+                file_mode = "r+" if file_exists else "w"
+                with open(fixture_filepath, file_mode) as fixtures_file:
+                    if file_exists:
+                        self._update_existing_fixtures(fixtures_file, current_fixture)
+                    else:
+                        fixtures_file.write(self._serializer.serialize(current_fixture))
             else:
                 print(self._serializer.serialize(current_fixture))
+
+    def _create_fixtures(self, frame, arg):
+        func_return = self.reduce(frame, arg)
+        func, func_args, func_kwargs = self._get_func_details(frame)
+        invocation_id = get_invocation_id(func, *func_args, **func_kwargs)
+        self._fixtures[frame.f_code.co_name][invocation_id] = arg if func_return is None else func_return
 
     def _tracer(self, frame, event, arg):
         func_name = frame.f_code.co_name
@@ -101,7 +107,7 @@ class FixtureProducer(object):
             # trace the function call
             res = self._wrapped_func(*args, **kwargs)
         finally:
-            # disable tracer and replace with old one
+            # disable tracer and replace with old ones
             sys.setprofile(None)
         self._output_fixtures()
         return res

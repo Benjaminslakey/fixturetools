@@ -6,7 +6,7 @@ from fixturetools.utils import get_invocation_id
 
 def result_lookup(func, invocation_table, *func_args, **func_kwargs):
     invocation_id = get_invocation_id(func, *func_args, **func_kwargs)
-    return invocation_table[invocation_id]
+    return invocation_table.get(invocation_id, None)
 
 
 def create_function_double(original_function, fixture_filepath, serializer=fixture_serializer):

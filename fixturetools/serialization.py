@@ -24,7 +24,7 @@ class JSONSerializer(Serializer):
         self._indent = indent
 
     def serialize(self, obj, output_format=None, **kwargs):
-        indent = kwargs.pop('indent') if 'indent' in kwargs else self._indent
+        indent = None if kwargs.get('compact', False) else self._indent
         return json.dumps(obj, cls=self._encoder, indent=indent)
 
     def deserialize(self, json_string, **kwargs):
@@ -33,11 +33,11 @@ class JSONSerializer(Serializer):
 
 class FixturesEncoder(json.JSONEncoder):
     def default(self, obj):
-        transformed_obj = obj
+        transformed_obj = None
 
         try:
             transformed_obj = super(FixturesEncoder, self).default(obj)
-        except TypeError:
+        except TypeError, ValueError:
             if isinstance(obj, datetime):
                 transformed_obj = {
                     '__type__': "datetime",
@@ -68,7 +68,7 @@ class FixturesDecoder(json.JSONDecoder):
             type_instance = dateutil.parser.parse(dt_string)
         elif type_:
             cpickle_dump = obj.get('cpickle_dump')
-            type_instance = cPickle.loads(cpickle_dump)
+            type_instance = cPickle.loads(cpickle_dump.encode('utf8') if isinstance(cpickle_dump, unicode) else cpickle_dump)
         return type_instance
 
 
