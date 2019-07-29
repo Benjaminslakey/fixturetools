@@ -5,13 +5,15 @@ import inspect
 from copy import deepcopy
 from collections import defaultdict
 
+import operator
+
 from fixturetools.utils import get_invocation_id, get_invocation_details
 from fixturetools.serialization import fixture_serializer
 
 
 class FixtureProducer(object):
     def __init__(self, func):
-        self._func_names = []
+        self._monitored_code = []
         self._invocation_key = None
         self._fixtures = defaultdict(dict)
         self._serializer = fixture_serializer
@@ -65,40 +67,46 @@ class FixtureProducer(object):
 
     def _create_fixtures(self, frame, arg):
         func_return = self.reduce(frame, arg)
-        if self._invocation_key:
-            invocation_id = self._invocation_key
-        else:
-            func, func_args, func_kwargs = get_invocation_details(frame)
-            invocation_id = get_invocation_id(func, *func_args, **func_kwargs)
+        invocation_id = self._get_invocation_id(frame, arg)
         self._fixtures[frame.f_code.co_name][invocation_id] = arg if func_return is None else func_return
 
+    def _get_invocation_id(self, frame, arg):
+        if inspect.isfunction(self._invocation_key):
+            return str(self._invocation_key(frame, arg))
+        elif isinstance(self._invocation_key, str):
+            return self._invocation_key
+        else:
+            func, func_args, func_kwargs = get_invocation_details(frame)
+            return get_invocation_id(func, *func_args, **func_kwargs)
+
     def _tracer(self, frame, event, arg):
-        func_name = frame.f_code.co_name
-        if event == "return" and (func_name in self._func_names or func_name == self._wrapped_func.__name__):
+        code_info = (frame.f_code.co_filename, frame.f_code.co_name)
+        if event == "return" and code_info in self._monitored_code:
             self._create_fixtures(frame, arg)
 
     def __call__(self, *args, **kwargs):
         # tracer is activated on next call, return or exception
+        previous_profiler = sys.getprofile()
         sys.setprofile(self._tracer)
         try:
             # trace the function call
             res = self._wrapped_func(*args, **kwargs)
         finally:
             # disable tracer and replace with old ones
-            sys.setprofile(None)
+            sys.setprofile(previous_profiler)
             self._output_fixtures()
         return res
 
 
-def create_fixtures(func_names, reducer=None, **kwargs):
+def create_fixtures(monitored_funcs, reducer=None, **kwargs):
     """
     decorator which will monitor execution of the decorated function and produce json fixtures of subsequent calls to the
     functions specified by the only required argument
 
-    :param func_names: list of function names to monitor invocation of.
+    :param monitored_funcs: list of functions to monitor invocation of.
         fixtures will be created from these invocations and their results
-    :param kwargs: invocation_key: hashable item to be used as the key for storing function results in fixtures
-        the default behavior if not specified is to create an invocation signature to use as the key
+    :param kwargs: invocation_key: function(frame, arg) which returns a hashable item to use as key for storing function
+        results in fixtures the default behavior if not specified is to create an invocation signature to use as the key
     :param kwargs: serializer: a subclass of Serializer. if the results of the specified functions will
         contain objects which are not json serializable this should be a custom class which specifies how to serialize
     :param kwargs: output_dir: path of where to output the created fixtures, if none is given the fixtures will be
@@ -108,7 +116,7 @@ def create_fixtures(func_names, reducer=None, **kwargs):
     class FixtureDecorator(FixtureProducer):
         def __init__(self, func):
             super(FixtureDecorator, self).__init__(func)
-            self._func_names = func_names
+            self._monitored_code = [(f.func_code.co_filename, f.__name__) for f in monitored_funcs] + [(func.func_code.co_filename, func.__name__)]
 
             # allow kwargs to specify init values for field defined by parent class
             for attr_name in vars(self).keys():

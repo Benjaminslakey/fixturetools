@@ -8,7 +8,10 @@ from fixturetools.utils import get_invocation_id
 def get_results_table(fixture_filepath, serializer=fixture_serializer):
     with open(fixture_filepath) as f:
         file_contents = f.read()
-    function_results_table = serializer.deserialize(file_contents)
+    try:
+        function_results_table = serializer.deserialize(file_contents)
+    except ValueError:
+        function_results_table = {}
     return function_results_table
 
 
