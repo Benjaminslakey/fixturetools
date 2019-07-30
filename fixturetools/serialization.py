@@ -10,6 +10,16 @@ DT_TYPE_ATTR = 'dt_string'
 CPICKLE_DUMP_ATTR = 'cpickle_dump'
 
 
+def get_obj_type(obj):
+    if isinstance(obj, object):
+        kls = getattr(obj, '__class__', '')
+    elif inspect.isclass(obj):
+        kls = obj
+    else:
+        return type(obj)
+    return repr(kls)
+
+
 class Serializer(object):
     def serialize(self, *args, **kwargs):
         raise NotImplementedError("Subclass must implement serialize")
@@ -48,10 +58,6 @@ def add_hooks(obj_instance, custom_hooks=None):
         raise ValueError("pass custom_encode_hooks as (class, hook) tuple")
 
 
-def obj_class_repr(obj):
-    return repr(getattr(obj, '__class__', ''))
-
-
 class FixturesEncoder(JSONEncoder):
     def __init__(self, custom_hooks=None, *args, **kwargs):
         super(FixturesEncoder, self).__init__(*args, **kwargs)
@@ -59,10 +65,10 @@ class FixturesEncoder(JSONEncoder):
         add_hooks(self, custom_hooks)
 
     def default(self, obj):
-        obj_clas_repr = obj_class_repr(obj)
+        obj_type = get_obj_type(obj)
 
-        if obj_clas_repr in self._custom_hooks:
-            encoder = self._custom_hooks[obj_clas_repr]
+        if obj_type in self._custom_hooks:
+            encoder = self._custom_hooks[obj_type]
             transformed_obj = encoder(obj)
         else:
             try:
@@ -78,13 +84,13 @@ class FixturesEncoder(JSONEncoder):
                     except TypeError:
                         transformed_obj = {'repr': repr(obj)}
         if isinstance(transformed_obj, dict):
-            transformed_obj[CLASS_TYPE_ATTR] = obj_clas_repr
+            transformed_obj[CLASS_TYPE_ATTR] = obj_type
         return transformed_obj
 
     def add_custom_hook(self, object_class, hook):
         if isinstance(object_class, object) and inspect.isfunction(hook):
-            cls_repr = repr(object_class)
-            self._custom_hooks[cls_repr] = hook
+            obj_type = get_obj_type(object_class)
+            self._custom_hooks[obj_type] = hook
         else:
             raise TypeError("custom hook takes two arguments: (class, encoding function for class)")
 
@@ -105,7 +111,7 @@ class FixturesDecoder(JSONDecoder):
         if type_ in self._custom_hooks:
             decoder = self._custom_hooks[type_].get('decoder')
             type_instance = decoder(obj)
-        elif type_ == obj_class_repr(datetime):
+        elif type_ == get_obj_type(datetime):
             dt_string = obj[DT_TYPE_ATTR]
             type_instance = dateutil.parser.parse(dt_string)
         elif type_ and CPICKLE_DUMP_ATTR in obj:
@@ -115,9 +121,9 @@ class FixturesDecoder(JSONDecoder):
 
     def add_custom_hook(self, object_class, hook):
         if isinstance(object_class, object) and inspect.isfunction(hook):
-            cls_repr = repr(object_class)
-            self._custom_hooks[cls_repr] = {
-                CLASS_TYPE_ATTR: cls_repr,
+            obj_type = get_obj_type(object_class)
+            self._custom_hooks[obj_type] = {
+                CLASS_TYPE_ATTR: obj_type,
                 'decoder': hook
             }
         else:
